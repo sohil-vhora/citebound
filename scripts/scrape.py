@@ -21,15 +21,42 @@ HEADERS = {
 }
 
 
+import re  # add this at the top of the file with the other imports if not already there
+
 def extract_date_modified(soup):
-    """Canada.ca pages have a <time property='dateModified'> tag near the bottom."""
+    """Try multiple strategies — canada.ca, ontario.ca, and quebec.ca all differ."""
+
+    # Strategy 1: <time property="dateModified"> (canada.ca standard markup)
     tag = soup.find("time", property="dateModified")
     if tag and tag.get_text(strip=True):
         return tag.get_text(strip=True)
-    # Fallback: look for any time tag
-    tag = soup.find("time")
-    if tag and tag.get_text(strip=True):
-        return tag.get_text(strip=True)
+
+    # Strategy 2: canada.ca "Page details" definition list
+    dl = soup.find("dl", id="wb-dtmd")
+    if dl:
+        m = re.search(r"\d{4}-\d{2}-\d{2}", dl.get_text())
+        if m:
+            return m.group(0)
+
+    # Strategy 3: any <time> element with an ISO-style date
+    for tag in soup.find_all("time"):
+        text = tag.get_text(strip=True)
+        if re.match(r"\d{4}-\d{2}-\d{2}", text):
+            return text
+
+    # Strategy 4: regex over full page text — catches Ontario.ca and edge cases
+    body_text = soup.get_text(separator=" ", strip=True)
+    patterns = [
+        r"Date modified[:\s]+(\d{4}-\d{2}-\d{2})",
+        r"Last modified[:\s]+(\d{4}-\d{2}-\d{2})",
+        r"Updated[:\s]+(\d{4}-\d{2}-\d{2})",
+        r"Page details\s+(\d{4}-\d{2}-\d{2})",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, body_text)
+        if m:
+            return m.group(1)
+
     return None
 
 
