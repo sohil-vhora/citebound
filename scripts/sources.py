@@ -52,4 +52,22 @@ PRIORITY_SOURCES = [
         "topic": "health",
         "description": "OHIP eligibility and application"
     },
+    {
+    "id": "pal_requirements",
+    "url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/study-canada/study-permit/get-documents/provincial-attestation-letter.html",
+    "topic": "study_permit",
+    "description": "Provincial Attestation Letter requirements"
+    },
+    {
+        "id": "oinp_masters_graduate",
+        "url": "https://www.ontario.ca/page/oinp-masters-graduate-stream",
+        "topic": "pnp",
+        "description": "OINP Masters Graduate stream"
+    },
+    {
+        "id": "cra_residency_status",
+        "url": "https://www.canada.ca/en/revenue-agency/services/tax/international-non-residents/information-been-moved/determining-your-residency-status.html",
+        "topic": "tax",
+        "description": "Determining your residency status for tax purposes"
+    },
 ]
