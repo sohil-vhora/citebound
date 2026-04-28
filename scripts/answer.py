@@ -183,9 +183,19 @@ if __name__ == "__main__":
     test_questions = [
         "How many hours can an international student work off-campus per week?",
         "Do Master's students need a Provincial Attestation Letter in 2026?",
+        "How does the GST/HST credit work for international students?",
         "Am I eligible for OHIP as a student in Ontario?",
-        "What's the weather in Toronto today?",  # Out of scope, should redirect
-        "I have a 478 CRS score, will I get an ITA?",  # Should refuse to predict
+        "What's the financial requirement for a study permit?",
+        "How do I extend my study permit before it expires?",
+        "Are co-op work permits still required after April 2026?",
+        "How does Quebec's CAQ differ from a PAL?",
+        "Can a Master's student in BC get MSP?",
+        "Do Alberta students get AHCIP?",
+        "What's the TFSA contribution rule for non-residents?",
+        "How long are biometrics valid for?",
+        "What replaced PEQ in Quebec?",
+        "I have a 478 CRS score, will I get an ITA?",
+        "What's the weather in Toronto?",
     ]
 
     for q in test_questions:
