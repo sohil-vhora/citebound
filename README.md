@@ -30,7 +30,7 @@ It is deliberately **information**, not **advice**. The boundary is informed by 
 
 ## Architecture
 
-'''bash
+
 Question → Query rewriter (Haiku, only for follow-ups)
 → Personal-prediction detector (heuristic)
 → If detected: route to LLM with refusal-first framing
@@ -38,7 +38,7 @@ Question → Query rewriter (Haiku, only for follow-ups)
 → If best distance > 1.20: refuse honestly
 → Else: Claude Opus 4.7 with citation-required system prompt
 → Answer with inline citations + source cards + freshness badges
-'''
+
 
 **Two-layer refusal:**
 
@@ -98,7 +98,7 @@ python evals/run_evals.py
 
 ## Project structure
 
-'''bash
+'''
 citebound/
 ├── app.py                    # Streamlit chat UI
 ├── scripts/
