@@ -7,11 +7,19 @@ Usage:
     result = answer_question("How many hours can I work off-campus?")
     print(result["answer"])
     print(result["sources"])
+
+    # With conversation history:
+    result = answer_question(
+        "yes it was paid to Seneca",
+        history=[
+            {"role": "user", "content": "Can I claim foreign tuition credits?"},
+            {"role": "assistant", "content": "..."},
+        ],
+    )
 """
 
 import os
 from pathlib import Path
-from typing import Optional
 
 import chromadb
 import voyageai
@@ -20,6 +28,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ─────────────────────────────────────────────────────────────
+# Constants
+# ─────────────────────────────────────────────────────────────
 DB_DIR = Path(__file__).parent.parent / "vector_db"
 
 # Distance threshold above which we consider retrieval too weak to answer.
@@ -29,6 +40,10 @@ DISTANCE_REFUSAL_THRESHOLD = 1.20
 
 # How many chunks to retrieve and pass to Claude.
 TOP_K = 5
+
+# Models
+ANSWER_MODEL = "claude-opus-4-7"
+REWRITE_MODEL = "claude-haiku-4-5-20251001"  # cheap, fast for query rewriting
 
 SYSTEM_PROMPT = """You are Citebound, an information assistant for international \
 students in Canada covering immigration (study permits, PGWP, Express Entry, PNPs), \
@@ -89,6 +104,9 @@ consult an RCIC (college-ic.ca) or immigration lawyer."
 """
 
 
+# ─────────────────────────────────────────────────────────────
+# Clients
+# ─────────────────────────────────────────────────────────────
 def get_clients():
     voyage = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
     chroma = chromadb.PersistentClient(path=str(DB_DIR))
@@ -97,6 +115,57 @@ def get_clients():
     return voyage, collection, anthropic
 
 
+# ─────────────────────────────────────────────────────────────
+# Query rewriting
+# ─────────────────────────────────────────────────────────────
+def rewrite_followup_to_standalone(
+    question: str,
+    history: list,
+    anthropic,
+) -> str:
+    """
+    Given a follow-up question and prior conversation, rewrite the question
+    into a standalone query suitable for retrieval.
+
+    If there's no history, returns the question unchanged.
+    """
+    if not history:
+        return question
+
+    # Build a compact history string from the last 2 turns
+    history_text = "\n".join(
+        f"{m['role'].upper()}: {m['content'][:500]}"
+        for m in history[-4:]
+    )
+
+    rewrite_prompt = f"""Given the conversation history below, rewrite the user's \
+latest question as a STANDALONE search query that captures full context. The \
+rewritten query will be used for vector search over Canadian government \
+documents, so it should contain the key concepts and terms.
+
+If the latest question already stands alone (e.g., it's a fresh new topic), \
+return it as-is.
+
+Conversation history:
+{history_text}
+
+User's latest message: {question}
+
+Output ONLY the rewritten standalone query, nothing else. No preamble, no \
+explanation."""
+
+    response = anthropic.messages.create(
+        model=REWRITE_MODEL,
+        max_tokens=200,
+        messages=[{"role": "user", "content": rewrite_prompt}],
+    )
+    rewritten = response.content[0].text.strip()
+    return rewritten
+
+
+# ─────────────────────────────────────────────────────────────
+# Retrieval
+# ─────────────────────────────────────────────────────────────
 def retrieve(question: str, voyage, collection, k: int = TOP_K):
     """Embed the question and retrieve top-k chunks."""
     q_embedding = voyage.embed(
@@ -114,7 +183,7 @@ def retrieve(question: str, voyage, collection, k: int = TOP_K):
 
 
 def format_sources(chunks: list) -> str:
-    """Format retrieved chunks as numbered SOURCES block for the prompt."""
+    """Format retrieved chunks as a numbered SOURCES block for the prompt."""
     lines = []
     for i, chunk in enumerate(chunks, start=1):
         meta = chunk["metadata"]
@@ -127,39 +196,84 @@ def format_sources(chunks: list) -> str:
     return "\n---\n".join(lines)
 
 
-def answer_question(question: str, model: str = "claude-opus-4-7") -> dict:
-    """Main entry point. Returns dict with answer, sources, and metadata."""
+# ─────────────────────────────────────────────────────────────
+# Refusal messages
+# ─────────────────────────────────────────────────────────────
+def _weak_retrieval_refusal(search_query: str, has_history: bool) -> str:
+    """Different message depending on whether this is a follow-up or fresh question."""
+    if has_history:
+        return (
+            f"I understood your follow-up as:\n\n_\"{search_query}\"_\n\n"
+            "I don't have a source in my corpus that directly addresses this. "
+            "This often happens when a question touches on rules I haven't "
+            "indexed yet (for example, tuition credit carryforward across a "
+            "change in tax residency, which is a CRA topic outside my current "
+            "scope). For an authoritative answer, please check the CRA "
+            "directly or consult a Canadian tax professional. For immigration "
+            "matters, an RCIC (college-ic.ca) is the right resource.\n\n"
+            "This is general information, not advice."
+        )
+    return (
+        "I can only answer questions about Canadian immigration (study "
+        "permits, PGWP, Express Entry, PNPs), CRA tax basics, and provincial "
+        "health coverage for international students. I don't have a source "
+        "in my corpus that addresses this question. If your question fits "
+        "those topics, try rephrasing it; if not, this assistant isn't the "
+        "right tool.\n\n"
+        "This is general information, not advice."
+    )
+
+
+# ─────────────────────────────────────────────────────────────
+# Main entry point
+# ─────────────────────────────────────────────────────────────
+def answer_question(
+    question: str,
+    history: list = None,
+    model: str = ANSWER_MODEL,
+) -> dict:
+    """
+    Args:
+        question: the user's current question
+        history: list of prior {"role", "content"} messages (optional)
+        model: Claude model to use for the final answer
+
+    Returns dict with answer, sources, and metadata.
+    """
+    history = history or []
     voyage, collection, anthropic = get_clients()
 
-    chunks = retrieve(question, voyage, collection)
+    # Rewrite follow-ups into standalone queries for better retrieval
+    search_query = rewrite_followup_to_standalone(question, history, anthropic)
+
+    chunks = retrieve(search_query, voyage, collection)
     best_distance = min(c["distance"] for c in chunks)
 
     # Hard refusal if retrieval is too weak
     if best_distance > DISTANCE_REFUSAL_THRESHOLD:
         return {
-            "answer": (
-                "I can only answer questions about Canadian immigration (study "
-                "permits, PGWP, Express Entry, PNPs), CRA tax basics, and provincial "
-                "health coverage for international students. I don't have a source "
-                "in my corpus that addresses this question. If your question fits "
-                "those topics, try rephrasing it; if not, this assistant isn't the "
-                "right tool.\n\n"
-                "This is general information, not advice."
-            ),
+            "answer": _weak_retrieval_refusal(search_query, has_history=bool(history)),
             "sources": [],
             "best_distance": best_distance,
             "refused": True,
             "refusal_reason": "weak_retrieval",
+            "search_query_used": search_query,
         }
 
     sources_text = format_sources(chunks)
     user_message = f"QUESTION:\n{question}\n\nSOURCES:\n{sources_text}"
 
+    # Build messages: include prior history so Claude knows the conversation context
+    messages = []
+    for m in history[-6:]:  # cap history depth for token budget
+        messages.append({"role": m["role"], "content": m["content"]})
+    messages.append({"role": "user", "content": user_message})
+
     response = anthropic.messages.create(
         model=model,
         max_tokens=1500,
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_message}],
+        messages=messages,
     )
 
     return {
@@ -176,9 +290,13 @@ def answer_question(question: str, model: str = "claude-opus-4-7") -> dict:
         ],
         "best_distance": best_distance,
         "refused": False,
+        "search_query_used": search_query,
     }
 
 
+# ─────────────────────────────────────────────────────────────
+# Manual test harness
+# ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     test_questions = [
         "How many hours can an international student work off-campus per week?",
@@ -208,4 +326,8 @@ if __name__ == "__main__":
                 print(f"  [{s['id']}] {s['title']} (distance={s['distance']:.3f})")
                 print(f"      {s['url']}")
                 print(f"      Last modified: {s['date_modified']}")
-        print(f"\n[best_distance={result['best_distance']:.3f}, refused={result['refused']}]")
+        print(
+            f"\n[best_distance={result['best_distance']:.3f}, "
+            f"refused={result['refused']}, "
+            f"search_query='{result.get('search_query_used', q)}']"
+        )
