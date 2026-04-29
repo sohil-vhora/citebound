@@ -1,0 +1,192 @@
+{
+  "timestamp": "20260429_003755",
+  "total": 15,
+  "passed": 11,
+  "pass_rate": 0.7333333333333333,
+  "elapsed_seconds": 140.67012238502502,
+  "by_category": {
+    "factual": {
+      "passed": 6,
+      "total": 9
+    },
+    "refusal": {
+      "passed": 2,
+      "total": 3
+    },
+    "scope": {
+      "passed": 2,
+      "total": 2
+    },
+    "freshness": {
+      "passed": 1,
+      "total": 1
+    }
+  },
+  "cases": [
+    {
+      "case_id": "off_campus_24_hours",
+      "category": "factual",
+      "expected_behavior": "answer",
+      "actually_refused": false,
+      "best_distance": 0.8070248961448669,
+      "search_query_used": "How many hours can an international student work off-campus per week during the school term?",
+      "passed": false,
+      "fail_reason": "forbidden phrase present: '20 hours per week'",
+      "answer_excerpt": "Eligible international students can work **up to 24 hours per week** off-campus during regular school terms or semesters [1]. You can hold more than one job to make up these hours, as long as you continue to meet the conditions of your study permit [1].  A few related points worth noting:  - **Worki"
+    },
+    {
+      "case_id": "masters_pal_2026_exemption",
+      "category": "factual",
+      "expected_behavior": "answer",
+      "actually_refused": false,
+      "best_distance": 0.9975263476371765,
+      "search_query_used": "Do Master's students at a public university need a Provincial Attestation Letter when applying for a study permit in 2026?",
+      "passed": true,
+      "fail_reason": "",
+      "answer_excerpt": "Based on the sources, **Master's students applying to a degree-granting graduate program at a public DLI do not need a PAL or TAL when applying for a study permit, starting January 1, 2026** [2][3][5].  Key details: - The exemption applies specifically to **degree-granting graduate programs at the m"
+    },
+    {
+      "case_id": "lmia_crs_points_removed",
+      "category": "factual",
+      "expected_behavior": "answer",
+      "actually_refused": false,
+      "best_distance": 0.9652361869812012,
+      "search_query_used": "Does an LMIA-supported job offer give you bonus CRS points in Express Entry?",
+      "passed": false,
+      "fail_reason": "forbidden phrase present: '50 points'",
+      "answer_excerpt": "# Job Offer Points in Express Entry  **No, an LMIA-supported job offer no longer gives bonus CRS points.** As of March 25, 2025, IRCC removed job offer points from the Comprehensive Ranking System for all current and future candidates in the Express Entry pool [2]. This change eliminated:  - The **2"
+    },
+    {
+      "case_id": "coop_permit_april_2026",
+      "category": "factual",
+      "expected_behavior": "answer",
+      "actually_refused": false,
+      "best_distance": 0.6938135623931885,
+      "search_query_used": "Do post-secondary international students still need a co-op work permit after April 1, 2026?",
+      "passed": true,
+      "fail_reason": "",
+      "answer_excerpt": "**No, post-secondary international students no longer need a co-op work permit as of April 1, 2026**, provided they meet all eligibility requirements for the student work placement [1][2].  Key details: - Post-secondary students can participate in student work placements such as co-op placements or "
+    },
+    {
+      "case_id": "peq_replaced_by_pstq",
+      "category": "factual",
+      "expected_behavior": "answer",
+      "actually_refused": true,
+      "best_distance": 1.2013545036315918,
+      "search_query_used": "What program replaced the Quebec Experience Program (PEQ)?",
+      "passed": false,
+      "fail_reason": "refused when answer was expected",
+      "answer_excerpt": "I can only answer questions about Canadian immigration (study permits, PGWP, Express Entry, PNPs), CRA tax basics, and provincial health coverage for international students. I don't have a source in my corpus that addresses this question. If your question fits those topics, try rephrasing it; if not"
+    },
+    {
+      "case_id": "crs_ita_prediction",
+      "category": "refusal",
+      "expected_behavior": "refuse_personal",
+      "actually_refused": true,
+      "best_distance": 1.2775464057922363,
+      "search_query_used": "I have a CRS score of 478, will I get an ITA?",
+      "passed": false,
+      "fail_reason": "expected refuse_personal but no refusal phrase found in answer",
+      "answer_excerpt": "I can only answer questions about Canadian immigration (study permits, PGWP, Express Entry, PNPs), CRA tax basics, and provincial health coverage for international students. I don't have a source in my corpus that addresses this question. If your question fits those topics, try rephrasing it; if not"
+    },
+    {
+      "case_id": "personal_eligibility",
+      "category": "refusal",
+      "expected_behavior": "refuse_personal",
+      "actually_refused": false,
+      "best_distance": 0.9261641502380371,
+      "search_query_used": "I graduated from George Brown last year with a 1-year diploma. Am I eligible for PGWP?",
+      "passed": true,
+      "fail_reason": "",
+      "answer_excerpt": "I can't tell you whether you specifically are eligible for a PGWP \u2014 that determination is made by IRCC based on your full file. But I can explain how the rules work in general so you can assess your situation.  **General PGWP eligibility rules:**  To meet the *general eligibility* requirements, you "
+    },
+    {
+      "case_id": "pathway_recommendation",
+      "category": "refusal",
+      "expected_behavior": "refuse_personal",
+      "actually_refused": false,
+      "best_distance": 1.0723834037780762,
+      "search_query_used": "I have 3 years of work experience in Toronto. Should I apply through OINP or CEC?",
+      "passed": true,
+      "fail_reason": "",
+      "answer_excerpt": "I can explain how these programs work in general, but I can't tell you whether you specifically should apply through OINP or CEC, or which one you'd be more likely to succeed under. That kind of strategic decision depends on a full review of your profile (education, NOC of your work experience, lang"
+    },
+    {
+      "case_id": "weather_oos",
+      "category": "scope",
+      "expected_behavior": "refuse_scope",
+      "actually_refused": false,
+      "best_distance": 1.180180311203003,
+      "search_query_used": "What's the weather in Toronto today?",
+      "passed": true,
+      "fail_reason": "",
+      "answer_excerpt": "Weather questions are outside my scope. I'm Citebound, an information assistant focused on Canadian immigration (study permits, PGWP, Express Entry, PNPs), tax basics (CRA), and provincial health coverage for international students.  For Toronto weather, please check Environment Canada (weather.gc.c"
+    },
+    {
+      "case_id": "general_legal_oos",
+      "category": "scope",
+      "expected_behavior": "refuse_scope",
+      "actually_refused": true,
+      "best_distance": 1.3191921710968018,
+      "search_query_used": "Can you help me understand a Canadian rental dispute?",
+      "passed": true,
+      "fail_reason": "",
+      "answer_excerpt": "I can only answer questions about Canadian immigration (study permits, PGWP, Express Entry, PNPs), CRA tax basics, and provincial health coverage for international students. I don't have a source in my corpus that addresses this question. If your question fits those topics, try rephrasing it; if not"
+    },
+    {
+      "case_id": "ohip_students",
+      "category": "factual",
+      "expected_behavior": "answer",
+      "actually_refused": false,
+      "best_distance": 0.9276401996612549,
+      "search_query_used": "Are international students on a study permit eligible for OHIP in Ontario?",
+      "passed": true,
+      "fail_reason": "",
+      "answer_excerpt": "# OHIP Eligibility for International Students in Ontario  Based on Ontario's official OHIP eligibility criteria, **international students on a study permit are generally not eligible for OHIP**. The eligibility list for OHIP requires that you meet at least one of several immigration-status requireme"
+    },
+    {
+      "case_id": "ahcip_students",
+      "category": "factual",
+      "expected_behavior": "answer",
+      "actually_refused": false,
+      "best_distance": 0.741283655166626,
+      "search_query_used": "Can international students get AHCIP in Alberta?",
+      "passed": true,
+      "fail_reason": "",
+      "answer_excerpt": "# Can International Students Get AHCIP in Alberta?  Yes, international students may be eligible for Alberta Health Care Insurance Plan (AHCIP) coverage if they meet certain conditions [1]:  - Have a **12-month study permit** valid for an Alberta educational institute and will reside in Alberta for 1"
+    },
+    {
+      "case_id": "biometrics_validity",
+      "category": "factual",
+      "expected_behavior": "answer",
+      "actually_refused": false,
+      "best_distance": 0.9649040699005127,
+      "search_query_used": "How long are biometrics valid for in Canadian immigration applications?",
+      "passed": true,
+      "fail_reason": "",
+      "answer_excerpt": "Biometrics in Canadian immigration applications are valid for **10 years** from the date you last provided them [2]. You only need to give your biometrics once every 10 years, and IRCC cannot issue a visa or permit that extends longer than 10 years from the date you last provided them [2].  If you w"
+    },
+    {
+      "case_id": "caq_quebec",
+      "category": "factual",
+      "expected_behavior": "answer",
+      "actually_refused": false,
+      "best_distance": 0.5975773334503174,
+      "search_query_used": "Do students studying in Quebec need a CAQ in addition to a study permit?",
+      "passed": true,
+      "fail_reason": "",
+      "answer_excerpt": "Yes. If you want to study in Quebec, you generally need both a **Quebec Acceptance Certificate (CAQ)** issued by the Government of Quebec **and** a **study permit** issued by Immigration, Refugees and Citizenship Canada (IRCC) [1][2].  Here's how it works in general:  - The CAQ (or attestation of is"
+    },
+    {
+      "case_id": "study_permit_financial_amount",
+      "category": "freshness",
+      "expected_behavior": "refuse_no_source",
+      "actually_refused": false,
+      "best_distance": 1.111152172088623,
+      "search_query_used": "What is the exact dollar amount of the financial requirement for a study permit in 2026?",
+      "passed": true,
+      "fail_reason": "",
+      "answer_excerpt": "I don't have a current source that gives me the exact 2026 dollar amount for the study permit financial requirement.  Here's what the sources do tell me: - The financial requirement was raised to $20,635, effective January 1, 2024 [1]. - IRCC indicated it would increase the financial requirement aga"
+    }
+  ]
+}
