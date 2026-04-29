@@ -27,22 +27,25 @@ REFUSAL_PHRASES = {
     "refuse_personal": [
         "can't tell you",
         "cannot tell you",
-        "RCIC",
+        "i'm not able to predict",
+        "not able to predict",
+        "i can't predict",
         "rcic",
         "consult an authorized representative",
         "consult a regulated",
+        "that determination is made by ircc",
     ],
     "refuse_scope": [
-        "I can only answer questions about",
+        "i can only answer questions about",
         "outside",
         "isn't the right tool",
         "not the right tool",
-        "I'm focused on",
+        "i'm focused on",
     ],
     "refuse_no_source": [
         "don't have a source",
         "don't have a current source",
-        "I understood your follow-up as",
+        "i understood your follow-up as",
     ],
 }
 

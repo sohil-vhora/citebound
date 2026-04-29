@@ -2,6 +2,14 @@
 The core answering function.
 Takes a question, retrieves chunks, calls Claude with citation-or-refuse instructions.
 
+Two-layer refusal architecture:
+1. Heuristic detector for personal-prediction questions ("will I get", "am I
+   eligible", etc.) — these always go through the LLM with refusal-first framing
+   regardless of retrieval confidence, because the system prompt's Rule 2
+   handles them better than any string template.
+2. Distance threshold for off-corpus questions — if retrieval is too weak, we
+   refuse honestly rather than letting the LLM hallucinate from training data.
+
 Usage:
     from answer import answer_question
     result = answer_question("How many hours can I work off-campus?")
@@ -45,6 +53,33 @@ TOP_K = 5
 ANSWER_MODEL = "claude-opus-4-7"
 REWRITE_MODEL = "claude-haiku-4-5-20251001"  # cheap, fast for query rewriting
 
+# ─────────────────────────────────────────────────────────────
+# Personal-prediction heuristic
+# ─────────────────────────────────────────────────────────────
+PERSONAL_PREDICTION_PATTERNS = [
+    "will i get",
+    "will i be",
+    "will my application",
+    "am i eligible",
+    "do i qualify",
+    "do i meet",
+    "should i apply",
+    "what are my chances",
+    "what's my chance",
+    "what is my chance",
+    "would i qualify",
+    "would i be eligible",
+]
+
+
+def looks_like_personal_prediction(question: str) -> bool:
+    q = question.lower().strip()
+    return any(p in q for p in PERSONAL_PREDICTION_PATTERNS)
+
+
+# ─────────────────────────────────────────────────────────────
+# System prompt
+# ─────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """You are Citebound, an information assistant for international \
 students in Canada covering immigration (study permits, PGWP, Express Entry, PNPs), \
 tax basics (CRA), and provincial health coverage.
@@ -132,7 +167,6 @@ def rewrite_followup_to_standalone(
     if not history:
         return question
 
-    # Build a compact history string from the last 2 turns
     history_text = "\n".join(
         f"{m['role'].upper()}: {m['content'][:500]}"
         for m in history[-4:]
@@ -159,8 +193,7 @@ explanation."""
         max_tokens=200,
         messages=[{"role": "user", "content": rewrite_prompt}],
     )
-    rewritten = response.content[0].text.strip()
-    return rewritten
+    return response.content[0].text.strip()
 
 
 # ─────────────────────────────────────────────────────────────
@@ -225,6 +258,51 @@ def _weak_retrieval_refusal(search_query: str, has_history: bool) -> str:
 
 
 # ─────────────────────────────────────────────────────────────
+# Helper — call the LLM with given messages and format the result
+# ─────────────────────────────────────────────────────────────
+def _call_llm_with_chunks(
+    question: str,
+    chunks: list,
+    history: list,
+    anthropic,
+    model: str,
+    extra_instruction: str = "",
+) -> str:
+    """Build the message list and call Claude. Returns the raw answer text."""
+    sources_text = format_sources(chunks)
+    user_message = (
+        f"QUESTION{extra_instruction}:\n{question}\n\nSOURCES:\n{sources_text}"
+    )
+
+    messages = []
+    for m in history[-6:]:  # cap history depth for token budget
+        messages.append({"role": m["role"], "content": m["content"]})
+    messages.append({"role": "user", "content": user_message})
+
+    response = anthropic.messages.create(
+        model=model,
+        max_tokens=1500,
+        system=SYSTEM_PROMPT,
+        messages=messages,
+    )
+    return response.content[0].text
+
+
+def _format_sources_response(chunks: list) -> list:
+    """Shape source chunks for the API response dict."""
+    return [
+        {
+            "id": i + 1,
+            "title": c["metadata"]["title"],
+            "url": c["metadata"]["url"],
+            "date_modified": c["metadata"]["date_modified"],
+            "distance": c["distance"],
+        }
+        for i, c in enumerate(chunks)
+    ]
+
+
+# ─────────────────────────────────────────────────────────────
 # Main entry point
 # ─────────────────────────────────────────────────────────────
 def answer_question(
@@ -245,11 +323,35 @@ def answer_question(
 
     # Rewrite follow-ups into standalone queries for better retrieval
     search_query = rewrite_followup_to_standalone(question, history, anthropic)
-
     chunks = retrieve(search_query, voyage, collection)
     best_distance = min(c["distance"] for c in chunks)
 
-    # Hard refusal if retrieval is too weak
+    # ─── Layer 1: Personal-prediction questions ────────────────
+    # Always route to the LLM with refusal-first framing, regardless of how
+    # confident retrieval is. This catches questions that are personal advice
+    # in disguise even if the corpus happens to retrieve relevant chunks.
+    if looks_like_personal_prediction(question):
+        answer_text = _call_llm_with_chunks(
+            question,
+            chunks,
+            history,
+            anthropic,
+            model,
+            extra_instruction=" (personal-prediction — refuse per Rule 2 first, then optionally explain in general)",
+        )
+        return {
+            "answer": answer_text,
+            "sources": _format_sources_response(chunks),
+            "best_distance": best_distance,
+            "refused": False,
+            "refusal_reason": None,
+            "search_query_used": search_query,
+            "routed_as": "personal_prediction",
+        }
+
+    # ─── Layer 2: Weak retrieval ───────────────────────────────
+    # If retrieval is too distant, refuse honestly rather than letting the LLM
+    # answer from training data.
     if best_distance > DISTANCE_REFUSAL_THRESHOLD:
         return {
             "answer": _weak_retrieval_refusal(search_query, has_history=bool(history)),
@@ -258,39 +360,21 @@ def answer_question(
             "refused": True,
             "refusal_reason": "weak_retrieval",
             "search_query_used": search_query,
+            "routed_as": "weak_retrieval_refusal",
         }
 
-    sources_text = format_sources(chunks)
-    user_message = f"QUESTION:\n{question}\n\nSOURCES:\n{sources_text}"
-
-    # Build messages: include prior history so Claude knows the conversation context
-    messages = []
-    for m in history[-6:]:  # cap history depth for token budget
-        messages.append({"role": m["role"], "content": m["content"]})
-    messages.append({"role": "user", "content": user_message})
-
-    response = anthropic.messages.create(
-        model=model,
-        max_tokens=1500,
-        system=SYSTEM_PROMPT,
-        messages=messages,
+    # ─── Default path: in-corpus question ──────────────────────
+    answer_text = _call_llm_with_chunks(
+        question, chunks, history, anthropic, model
     )
-
     return {
-        "answer": response.content[0].text,
-        "sources": [
-            {
-                "id": i + 1,
-                "title": c["metadata"]["title"],
-                "url": c["metadata"]["url"],
-                "date_modified": c["metadata"]["date_modified"],
-                "distance": c["distance"],
-            }
-            for i, c in enumerate(chunks)
-        ],
+        "answer": answer_text,
+        "sources": _format_sources_response(chunks),
         "best_distance": best_distance,
         "refused": False,
+        "refusal_reason": None,
         "search_query_used": search_query,
+        "routed_as": "standard",
     }
 
 
@@ -329,5 +413,6 @@ if __name__ == "__main__":
         print(
             f"\n[best_distance={result['best_distance']:.3f}, "
             f"refused={result['refused']}, "
+            f"routed_as={result.get('routed_as')}, "
             f"search_query='{result.get('search_query_used', q)}']"
         )

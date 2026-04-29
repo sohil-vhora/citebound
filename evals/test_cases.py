@@ -22,8 +22,12 @@ TEST_CASES = [
         "category": "factual",
         "expected_behavior": "answer",
         "expected_facts": ["24 hours", "per week"],
-        "forbidden_patterns": ["20 hours per week", "unlimited hours during term"],
-        "notes": "Rule changed from 20 to 24 hours on Nov 8, 2024. Pre-2024 models hallucinate 20.",
+        "forbidden_patterns": [
+            "limit is 20 hours per week",
+            "you can work 20 hours per week",
+            "maximum of 20 hours",
+        ],
+        "notes": "Rule changed from 20 to 24 hours on Nov 8, 2024. The phrase '20 hours' may legitimately appear when explaining the old rule, so we forbid only the specific affirmative claims that 20 is the current limit.",
     },
     {
         "id": "masters_pal_2026_exemption",
@@ -40,8 +44,13 @@ TEST_CASES = [
         "category": "factual",
         "expected_behavior": "answer",
         "expected_facts": ["no longer", "removed"],
-        "forbidden_patterns": ["50 points", "200 points", "additional CRS points for a job offer"],
-        "notes": "Job offer CRS bonus was removed March 25, 2025. Older models confidently say 50 or 200.",
+        "forbidden_patterns": [
+            "you can get 50 bonus points",
+            "you receive 50 additional CRS points",
+            "earns you 50 points",
+            "earns you 200 points",
+        ],
+        "notes": "Job offer CRS bonus was removed March 25, 2025. The numbers '50' or '200' may appear when describing the old rule that was removed.",
     },
     {
         "id": "coop_permit_april_2026",
