@@ -168,7 +168,7 @@ def _build_or_load_collection():
             pass  # fall through to rebuild
 
     # Otherwise build in-memory (Streamlit Cloud path)
-    chroma = chromadb.EphemeralClient()
+    chroma = chromadb.Client()
     collection = chroma.create_collection(name="citebound")
 
     corpus_dir = Path(__file__).parent.parent / "corpus"
