@@ -1,5 +1,7 @@
 # 📌 Citebound
 
+**🌐 Live demo: [citebound-ca.streamlit.app](https://citebound-ca.streamlit.app/)**
+
 A citation-grounded Q&A assistant for international students in Canada — covering immigration, tax basics, and provincial health coverage. Every answer cites a `canada.ca` or provincial government source, or refuses honestly.
 
 > **⚠️ Research project — not legal, immigration, or tax advice.** For your specific situation, consult a Regulated Canadian Immigration Consultant via [college-ic.ca](https://college-ic.ca) or a Canadian immigration lawyer. All decisions on immigration applications are made solely by IRCC.
