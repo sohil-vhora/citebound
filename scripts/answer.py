@@ -142,10 +142,93 @@ consult an RCIC (college-ic.ca) or immigration lawyer."
 # ─────────────────────────────────────────────────────────────
 # Clients
 # ─────────────────────────────────────────────────────────────
+import streamlit as st
+
+
+@st.cache_resource(show_spinner="Building vector index... (one-time, ~30s)")
+def _build_or_load_collection():
+    """
+    Build the Chroma collection from corpus JSONs if not cached.
+
+    Caching:
+    - On Streamlit Cloud (no persistent disk): rebuilds in-memory once per
+      container session, cached via @st.cache_resource.
+    - Locally (with vector_db/ on disk): uses the existing persistent client.
+    """
+    import json
+
+    voyage = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
+
+    # If the persistent DB already exists locally, just connect to it
+    if (DB_DIR / "chroma.sqlite3").exists():
+        chroma = chromadb.PersistentClient(path=str(DB_DIR))
+        try:
+            return chroma.get_collection("citebound")
+        except Exception:
+            pass  # fall through to rebuild
+
+    # Otherwise build in-memory (Streamlit Cloud path)
+    chroma = chromadb.EphemeralClient()
+    collection = chroma.create_collection(name="citebound")
+
+    corpus_dir = Path(__file__).parent.parent / "corpus"
+    docs = []
+    for path in sorted(corpus_dir.glob("*.json")):
+        with open(path, "r", encoding="utf-8") as f:
+            docs.append(json.load(f))
+
+    # Reuse the chunking logic from chunk_and_embed.py
+    sys_path_inserted = False
+    try:
+        import sys
+        scripts_dir = str(Path(__file__).parent)
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+            sys_path_inserted = True
+        from chunk_and_embed import chunk_text, clean_text  # noqa: E402
+    finally:
+        if sys_path_inserted:
+            sys.path.remove(scripts_dir)
+
+    all_chunks = []
+    for doc in docs:
+        cleaned = clean_text(doc["content"])
+        chunks = chunk_text(cleaned)
+        for i, chunk in enumerate(chunks):
+            all_chunks.append({
+                "id": f"{doc['id']}__{i:03d}",
+                "text": chunk,
+                "metadata": {
+                    "source_id": doc["id"],
+                    "url": doc["url"],
+                    "title": doc["title"],
+                    "topic": doc["topic"],
+                    "date_modified": doc.get("date_modified") or "unknown",
+                    "chunk_index": i,
+                },
+            })
+
+    # Embed in batches
+    BATCH = 64
+    embeddings = []
+    texts = [c["text"] for c in all_chunks]
+    for i in range(0, len(texts), BATCH):
+        batch = texts[i:i + BATCH]
+        result = voyage.embed(batch, model="voyage-3", input_type="document")
+        embeddings.extend(result.embeddings)
+
+    collection.add(
+        ids=[c["id"] for c in all_chunks],
+        embeddings=embeddings,
+        documents=texts,
+        metadatas=[c["metadata"] for c in all_chunks],
+    )
+    return collection
+
+
 def get_clients():
     voyage = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
-    chroma = chromadb.PersistentClient(path=str(DB_DIR))
-    collection = chroma.get_collection("citebound")
+    collection = _build_or_load_collection()
     anthropic = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     return voyage, collection, anthropic
 
