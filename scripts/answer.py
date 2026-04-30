@@ -177,18 +177,34 @@ def _build_or_load_collection():
         with open(path, "r", encoding="utf-8") as f:
             docs.append(json.load(f))
 
-    # Reuse the chunking logic from chunk_and_embed.py
-    sys_path_inserted = False
-    try:
-        import sys
-        scripts_dir = str(Path(__file__).parent)
-        if scripts_dir not in sys.path:
-            sys.path.insert(0, scripts_dir)
-            sys_path_inserted = True
-        from chunk_and_embed import chunk_text, clean_text  # noqa: E402
-    finally:
-        if sys_path_inserted:
-            sys.path.remove(scripts_dir)
+    # Inline the chunking logic — duplicates chunk_and_embed.py to avoid
+    # cross-script imports that break in containerized deploys.
+    import tiktoken
+
+    tokenizer = tiktoken.get_encoding("cl100k_base")
+    CHUNK_SIZE = 400
+    CHUNK_OVERLAP = 50
+
+    def clean_text(text: str) -> str:
+        replacements = {
+            "â€™": "'", "â€œ": '"', "â€\x9d": '"',
+            "â€“": "-", "â€”": "—", "Â ": " ", "\xa0": " ",
+        }
+        for bad, good in replacements.items():
+            text = text.replace(bad, good)
+        return text
+
+    def chunk_text(text, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
+        tokens = tokenizer.encode(text)
+        chunks = []
+        start = 0
+        while start < len(tokens):
+            end = min(start + chunk_size, len(tokens))
+            chunks.append(tokenizer.decode(tokens[start:end]))
+            if end == len(tokens):
+                break
+            start = end - overlap
+        return chunks
 
     all_chunks = []
     for doc in docs:
