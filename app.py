@@ -250,18 +250,15 @@ for msg in st.session_state["messages"]:
 # ─────────────────────────────────────────────────────────────
 # Handle new question — either from sample button or chat input
 # ─────────────────────────────────────────────────────────────
+# Always render the chat input — it must exist on every run for the user
+# to ask follow-up questions
+user_input = st.chat_input("Ask about study permits, work rules, taxes, or health coverage...")
+
 new_question = None
 if "pending_question" in st.session_state:
     new_question = st.session_state.pop("pending_question")
-elif user_input := st.chat_input("Ask about study permits, work rules, taxes, or health coverage..."):
+elif user_input:
     new_question = user_input
-
-if new_question:
-    # Capture history BEFORE appending the new user message
-    prior_history = [
-        {"role": m["role"], "content": m["content"]}
-        for m in st.session_state["messages"]
-    ]
 
     # Show user message immediately
     st.session_state["messages"].append({"role": "user", "content": new_question})
