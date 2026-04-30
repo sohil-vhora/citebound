@@ -134,6 +134,20 @@ def freshness_badge(date_str: str) -> str:
         return f'<span class="badge badge-unknown">{date_str}</span>'
 
 
+def render_source_card(src):
+    """Render a single source card as HTML."""
+    badge = freshness_badge(src["date_modified"])
+    return (
+        f'<div class="source-card">'
+        f'<a href="{src["url"]}" target="_blank">[{src["id"]}] {src["title"]}</a><br>'
+        f'<div class="source-meta">'
+        f'{badge}'
+        f'<span style="margin-left:8px;">retrieval distance: {src["distance"]:.3f}</span>'
+        f'</div>'
+        f'</div>'
+    )
+
+
 # ─────────────────────────────────────────────────────────────
 # Sidebar
 # ─────────────────────────────────────────────────────────────
@@ -164,7 +178,7 @@ with st.sidebar:
     st.markdown("**Stack**")
     st.caption(
         "Claude Opus 4.7 · voyage-3 embeddings · "
-        "ChromaDB · Streamlit · 45 government sources"
+        "FAISS / ChromaDB · Streamlit · 45 government sources"
     )
 
     st.markdown(
@@ -233,39 +247,35 @@ for msg in st.session_state["messages"]:
         if msg["role"] == "assistant" and msg.get("sources"):
             with st.expander(f"Sources ({len(msg['sources'])})"):
                 for src in msg["sources"]:
-                    badge = freshness_badge(src["date_modified"])
-                    st.markdown(
-                        f"""
-                        <div class="source-card">
-                            <a href="{src['url']}" target="_blank">[{src['id']}] {src['title']}</a><br>
-                            <div class="source-meta">
-                                {badge}
-                                <span style="margin-left:8px;">retrieval distance: {src['distance']:.3f}</span>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown(render_source_card(src), unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────
 # Handle new question — either from sample button or chat input
 # ─────────────────────────────────────────────────────────────
-# Always render the chat input — it must exist on every run for the user
-# to ask follow-up questions
+# Always render the chat input on every rerun so users can ask follow-ups
 user_input = st.chat_input("Ask about study permits, work rules, taxes, or health coverage...")
 
+# Decide what (if anything) to answer this run
 new_question = None
 if "pending_question" in st.session_state:
     new_question = st.session_state.pop("pending_question")
 elif user_input:
     new_question = user_input
 
-    # Show user message immediately
+if new_question:
+    # Capture history BEFORE appending the new user message,
+    # so the rewriter sees only prior turns, not the current one.
+    prior_history = [
+        {"role": m["role"], "content": m["content"]}
+        for m in st.session_state["messages"]
+    ]
+
+    # Append + render the user's message
     st.session_state["messages"].append({"role": "user", "content": new_question})
     with st.chat_message("user"):
         st.markdown(new_question)
 
-    # Run retrieval + answer
+    # Retrieve + answer
     with st.chat_message("assistant"):
         with st.spinner("Retrieving sources and drafting answer..."):
             try:
@@ -279,21 +289,9 @@ elif user_input:
         if result["sources"]:
             with st.expander(f"Sources ({len(result['sources'])})"):
                 for src in result["sources"]:
-                    badge = freshness_badge(src["date_modified"])
-                    st.markdown(
-                        f"""
-                        <div class="source-card">
-                            <a href="{src['url']}" target="_blank">[{src['id']}] {src['title']}</a><br>
-                            <div class="source-meta">
-                                {badge}
-                                <span style="margin-left:8px;">retrieval distance: {src['distance']:.3f}</span>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown(render_source_card(src), unsafe_allow_html=True)
 
-    # Store the assistant message in history
+    # Store the assistant message in session history
     st.session_state["messages"].append({
         "role": "assistant",
         "content": result["answer"],
